@@ -55,7 +55,7 @@ immutable because the behavior instance doesn't have or close over any mutable
 state. Processing the next message may result in a new behavior that can
 potentially be different from this one. State is updated by returning a new
 behavior that holds the new immutable state. In this case we don't need to
-update any state, so we return `Same`.
+update any state, so we return `same`.
 
 The type of the messages handled by this behavior is declared to be of class
 `Greet`, meaning that `msg` argument is
@@ -74,6 +74,27 @@ protocol but Actors can model arbitrarily complex protocols when needed. The
 protocol is bundled together with the behavior that implements it in a nicely
 wrapped scope—the `HelloWorld` @scala[object]@java[class].
 
+As Carl Hewitt said, one Actor is no Actor—it would be quite lonely with
+nobody to talk to. We need another Actor that that interacts with the `greeter`.
+Let's make a `bot` that receives the reply from the `greeter` and sends a number
+of additional greeting messages and collect the replies until a given max number
+of messages have been reached.
+
+Scala
+:  @@snip [IntroSpec.scala]($akka$/akka-actor-typed-tests/src/test/scala/docs/akka/typed/IntroSpec.scala) { #hello-world-bot }
+
+Note how this Actor manages the counter by changing the behavior for each `Greeted` reply
+rather than using any variables.
+
+FIXME java
+
+A third actor spawns the `greeter` and the `bot` and starts the interaction between those.
+
+Scala
+:  @@snip [IntroSpec.scala]($akka$/akka-actor-typed-tests/src/test/scala/docs/akka/typed/IntroSpec.scala) { #hello-world-main }
+
+FIXME java
+
 Now we want to try out this Actor, so we must start an ActorSystem to host it:
 
 Scala
@@ -82,58 +103,29 @@ Scala
 Java
 :  @@snip [IntroSpec.scala]($akka$/akka-actor-typed-tests/src/test/java/jdocs/akka/typed/IntroTest.java) { #hello-world }
 
-After importing the Actor’s protocol definition we start an Actor system from
-the defined `greeter` behavior.
+We start an Actor system from the defined `main` behavior and send two `Start` messages that
+will kick-off the interaction between two separate `bot` actors and the single `greeter` actor.
 
-As Carl Hewitt said, one Actor is no Actor—it would be quite lonely with
-nobody to talk to. In this sense the example is a little cruel because we only
-give the `HelloWorld` Actor a fake person to talk to—the “ask” pattern
-(represented by the `?` operator) can be used to send a message such that the
-reply fulfills a @scala[`Promise` to which we get back the corresponding `Future`]@java[`CompletionStage`].
+The console output may look like this:
 
-@@@ div {.group-scala}
-
-Note that the `Future` that is returned by the “ask” operation is
-properly typed already, no type checks or casts needed. This is possible due to
-the type information that is part of the message protocol: the `?` operator
-takes as argument a function that accepts an `ActorRef[U]` (which
-explains the `_` hole in the expression on line 7 above) and the `replyTo`
-parameter which we fill in is of type `ActorRef[Greeted]`, which
-means that the value that fulfills the `Promise` can only be of type
-`Greeted`.
-
-@@@
-
-@@@ div {.group-java}
-
-Note that the `CompletionStage` that is returned by the “ask” operation is
-properly typed already, no type checks or casts needed. This is possible due to
-the type information that is part of the message protocol: the `ask` operator
-takes as argument a function that pass an `ActorRef<U>`, which is the
-`replyTo` parameter of the  `Greet` message, which means that when sending
-the reply message to that `ActorRef` the message that fulfills the
-`CompletionStage` can only be of type `Greeted`.
-
-@@@
-
-We use this here to send the `Greet` command to the Actor and when the
-reply comes back we will print it out and tell the actor system to shut down.
-
-@@@ div {.group-scala}
-
-The `recovery` combinator on the original `Future` is
-needed in order to ensure proper system shutdown even in case something went
-wrong; the `flatMap` and `map` combinators that the `for` expression gets
-turned into care only about the “happy path” and if the `future` failed with
-a timeout then no `greeting` would be extracted and nothing would happen.
-
-@@@
-
-In the next section we demonstrate this on a more realistic example.
+```
+Hello World!
+Hello Akka!
+Greeting 1 for Akka
+Greeting 1 for World
+Hello Akka!
+Greeting 2 for Akka
+Hello World!
+Greeting 2 for World
+Hello Akka!
+Greeting 3 for Akka
+Hello World!
+Greeting 3 for World
+```
 
 ## A More Complex Example
 
-The next example demonstrates some important patterns:
+The next example is more realistic and demonstrates some important patterns:
 
 * Using a sealed trait and case class/objects to represent multiple messages an actor can receive
 * Handle sessions by using child actors
