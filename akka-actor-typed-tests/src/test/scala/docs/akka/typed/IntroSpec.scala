@@ -24,8 +24,8 @@ object IntroSpec {
     final case class Greet(whom: String, replyTo: ActorRef[Greeted])
     final case class Greeted(whom: String, from: ActorRef[Greet])
 
-    val greeter = Behaviors.immutable[Greet] { (ctx, msg) ⇒
-      println(s"Hello ${msg.whom}!")
+    val greeter: Behavior[Greet] = Behaviors.immutable { (ctx, msg) ⇒
+      ctx.log.info("Hello {}!", msg.whom)
       msg.replyTo ! Greeted(msg.whom, ctx.self)
       Behaviors.same
     }
@@ -35,10 +35,10 @@ object IntroSpec {
   //#hello-world-bot
   object HelloWorldBot {
 
-    def bot(count: Int, max: Int): Behavior[HelloWorld.Greeted] =
+    def bot(greetingCounter: Int, max: Int): Behavior[HelloWorld.Greeted] =
       Behaviors.immutable { (ctx, msg) ⇒
-        val n = count + 1
-        println(s"Greeting $n for ${msg.whom}")
+        val n = greetingCounter + 1
+        ctx.log.info("Greeting {} for {}", n, msg.whom)
         if (n == max) {
           Behaviors.stopped
         } else {
@@ -58,8 +58,8 @@ object IntroSpec {
       Behaviors.setup { context ⇒
         val greeter = context.spawn(HelloWorld.greeter, "greeter")
 
-        Behaviors.immutable[Start] { (ctx, msg) ⇒
-          val replyTo = ctx.spawn(HelloWorldBot.bot(count = 0, max = 3), msg.name)
+        Behaviors.immutable { (ctx, msg) ⇒
+          val replyTo = ctx.spawn(HelloWorldBot.bot(greetingCounter = 0, max = 3), msg.name)
           greeter ! HelloWorld.Greet(msg.name, replyTo)
           Behaviors.same
         }
@@ -95,7 +95,7 @@ object IntroSpec {
       chatRoom(List.empty)
 
     private def chatRoom(sessions: List[ActorRef[SessionCommand]]): Behavior[RoomCommand] =
-      Behaviors.immutable[RoomCommand] { (ctx, msg) ⇒
+      Behaviors.immutable { (ctx, msg) ⇒
         msg match {
           case GetSession(screenName, client) ⇒
             // create a child actor for further interaction with the client
@@ -157,8 +157,8 @@ class IntroSpec extends ActorTestKit with TypedAkkaSpecWithShutdown {
       //#chatroom-gabbler
       import ChatRoom._
 
-      val gabbler =
-        Behaviors.immutable[SessionEvent] { (_, msg) ⇒
+      val gabbler: Behavior[SessionEvent] =
+        Behaviors.immutable { (_, msg) ⇒
           msg match {
             //#chatroom-gabbler
             // We document that the compiler warns about the missing handler for `SessionDenied`
